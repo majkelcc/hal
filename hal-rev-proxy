@@ -108,7 +108,7 @@ case "${1:-}" in
       step "chang-rev-proxy started"
       finish_step_line
     fi
-    app_network_id "${CHANG_PWD:-$(realpath $PWD)}"
+    app_network_id "${CHANG_PWD:-$(pwd -P)}"
     ;;
   stop)
     remove_if_exists

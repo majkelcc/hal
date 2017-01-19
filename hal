@@ -85,20 +85,23 @@ export -f chang_install
 export -f chang
 export -f _chang_install_dev_server_if_exists
 
-CHANG_VOLUME=$(hal-sync)
 CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
 
 export CHANG_PWD=$(pwd -P)
+export BIN=${CHANG_PWD}/.chang/bin
 export CHANG_UID=${CHANG_UID:-1000}
 export CHANG_GID=${CHANG_GID:-1000}
 export CHANG_PORT=${CHANG_PORT:-8888}
 export CHANG_PATH=${HOME}/.chang
 export CHANG_MIN_IMAGE=alpine:latest
+export CHANG_DEV_SERVER_PATH=${HOME}/.puma-dev
+
+CHANG_VOLUME=$(hal-sync)
+CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
+
 export CHANG_VOLUME=${CHANG_VOLUME}
 export CHANG_APP_NETWORK_ID=${CHANG_APP_NETWORK_ID}
 export COMPOSE_PROJECT_NAME=${CHANG_VOLUME##chang-sync_}
-export BIN=${CHANG_PWD}/.chang/bin
-export CHANG_DEV_SERVER_PATH=${HOME}/.puma-dev
 
 cmd_path=".chang/bin"
 while [[ ! -z ${1:-} ]]; do
