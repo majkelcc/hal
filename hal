@@ -1,0 +1,130 @@
+#!/bin/bash -eu
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NO_COLOR='\033[0m'
+CLEAR_LINE='\r\033[K'
+
+fail() {
+  printf "${RED}❌  ${1}${NO_COLOR}\n" 1>&2
+  exit 1
+}
+
+step() {
+  _STEP_LINE=true
+  printf "${CLEAR_LINE}${NO_COLOR}${@}${NO_COLOR}" 1>&2
+}
+
+finish_step_line() {
+  printf $(${_STEP_LINE} && echo "\n") 1>&2
+  _STEP_LINE=false
+}
+
+[ -d .chang/bin ] || fail "Not a chang directory"
+
+chang_create_volume_if_not_exists() {
+  local name=${1}
+  if ! docker volume ls -q | grep -q "^${name}$"; then
+    docker run --rm \
+      --volume "${name}":/volume \
+      ${CHANG_MIN_IMAGE} \
+      chown ${CHANG_UID}:${CHANG_GID} /volume
+  fi
+}
+
+chang_create_network_if_not_exists() {
+  local name=${1}
+  if test -z $(docker network ls -qf "name=^${name}$"); then
+    docker network create "${name}"
+  fi
+}
+
+chang_install() {
+  local default_name=${CHANG_PWD##*/}
+  if [[ $# -eq 1 ]]; then
+    local name=${1}
+  else
+    # echo "what name sir? (${default_name})"
+    # read name
+    name=${name:-${default_name}}
+  fi
+  mkdir -p ${CHANG_PATH}
+  rm -f ${CHANG_PATH}/"${name}"
+  ln -s "${CHANG_PWD}" ${CHANG_PATH}/"${name}"
+  _chang_install_dev_server_if_exists "${name}"
+  hal-rev-proxy add $name
+  echo "▷ application installed!"
+}
+
+_chang_install_dev_server_if_exists() {
+  if [[ -n ${CHANG_DEV_SERVER_PATH:-} ]]; then
+    find ${CHANG_PATH} -type l | while read chang_project; do
+      rm -f ${CHANG_DEV_SERVER_PATH%/}/"${chang_project##*/}"
+      echo ${CHANG_PORT} > ${CHANG_DEV_SERVER_PATH%/}/"${chang_project##*/}"
+    done
+  fi
+}
+
+chang() {
+  echo "\`chang\` command is not available inside chang scripts" 2>&1
+  return 1
+}
+
+app_network_id() {
+  echo "chang_$(path_hash ${1})"
+}
+
+path_hash() {
+  echo ${1} | shasum - | head -c 8
+}
+
+export -f chang_create_volume_if_not_exists
+export -f chang_create_network_if_not_exists
+export -f chang_install
+export -f chang
+export -f _chang_install_dev_server_if_exists
+
+export CHANG_PWD=$(realpath ${PWD})
+export CHANG_UID=${CHANG_UID:-1000}
+export CHANG_GID=${CHANG_GID:-1000}
+export CHANG_PORT=${CHANG_PORT:-8888}
+export CHANG_PATH=${HOME}/.chang
+export CHANG_MIN_IMAGE=alpine:latest
+export CHANG_VOLUME=$(hal-sync)
+export CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
+export COMPOSE_PROJECT_NAME=${CHANG_VOLUME##chang-sync_}
+export BIN=${CHANG_PWD}/.chang/bin
+export CHANG_DEV_SERVER_PATH=${HOME}/.puma-dev
+
+cmd_path=".chang/bin"
+while [[ ! -z ${1:-} ]]; do
+  [ -d ${cmd_path}/${1} ] || break
+  cmd_path+="/$1"
+  shift
+done
+
+cmd=${1:-}
+
+run() {
+  [[ -x $1 ]] || fail "$1 is not executable"
+  $1 "${@:2}"
+}
+
+if [[ ${cmd_path}/${cmd} != ".chang/bin/" ]]; then
+  if [[ -z $cmd ]]; then
+    [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
+    run "${cmd_path}/${cmd_path##*/}"
+  elif [[ -f "${cmd_path}/${cmd}" ]]; then
+    run "${cmd_path}/${cmd}" "${@:2}"
+  else
+    [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
+    run "${cmd_path}/${cmd_path##*/}" "${@:1}"
+  fi
+else
+  if [ -x $BIN/status ]; then
+    $BIN/status
+  else
+    fail "chang what?"
+  fi
+fi

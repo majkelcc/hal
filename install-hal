@@ -1,0 +1,27 @@
+#!/bin/bash -eu
+
+brew install puma-dev
+if test -f ~/Library/Application\ Support/io.puma.dev/cert.pem; then
+  security add-trusted-cert -k login.keychain-db ~/Library/Application\ Support/io.puma.dev/cert.pem
+fi
+
+cat <<EOF >> ~/.bashrc
+# hal throwaway
+if [[ -d ~/hal ]]; then
+  complete -F __chang hal
+  export PATH="${HOME}/hal:\${PATH}"
+fi
+EOF
+
+cat <<EOF >> ~/.zshrc
+# hal throwaway
+if [[ -d ~/hal ]]; then
+  if [[ -f /usr/local/share/zsh/site-functions/chang ]]; then
+    source /usr/local/share/zsh/site-functions/chang
+    complete -F __chang hal
+  fi
+  export PATH="${HOME}/hal:\${PATH}"
+fi
+EOF
+
+echo "DONE"

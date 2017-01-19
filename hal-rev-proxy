@@ -1,0 +1,123 @@
+#!/bin/bash -eu
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NO_COLOR='\033[0m'
+CLEAR_LINE='\r\033[K'
+
+fail() {
+  printf "${RED}❌  ${1}${NO_COLOR}\n" 1>&2
+  exit 1
+}
+
+step() {
+  _STEP_LINE=true
+  printf "${CLEAR_LINE}${NO_COLOR}▷ ${@}${NO_COLOR}" 1>&2
+}
+
+finish_step_line() {
+  printf $(${_STEP_LINE} && echo "\n") 1>&2
+  _STEP_LINE=false
+}
+
+CHANG_NETWORK=${CHANG_NETWORK:-chang}
+CHANG_PORT=${CHANG_PORT:-8888}
+CHANG_PATH=${HOME}/.chang
+CHANG_REV_PROXY_CONTAINER=${CHANG_REV_PROXY_CONTAINER:-chang-rev-proxy}
+CHANG_REV_PROXY_IMAGE=${CHANG_REV_PROXY_IMAGE:-majkel/chang-rev-proxy}
+
+running() {
+  ! test -z $(docker ps -q --filter name=^/${CHANG_REV_PROXY_CONTAINER}$)
+}
+
+start() {
+  if test -z $(docker network ls -qf "name=^chang$"); then
+    docker network create chang
+  fi
+
+  docker run -d \
+    --name ${CHANG_REV_PROXY_CONTAINER} \
+    -p 127.0.0.1:${CHANG_PORT}:80 \
+    --network=chang \
+    ${CHANG_REV_PROXY_IMAGE} > /dev/null
+}
+
+add_apps() {
+  find ${CHANG_PATH} -maxdepth 1 -type l | while read app; do
+    add_app "${app##*/}"
+  done
+}
+
+add_app() {
+  local name=${1}
+  cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - > /nginx.d/chang/${name}.dev"
+server {
+  set \$target $(app_network_id $PWD):3000;
+
+  listen 80;
+  server_name .${name}.dev;
+
+  location / {
+    proxy_pass_request_headers on;
+    error_page 502 @offline;
+    proxy_pass http://\$target;
+  }
+
+  location @offline {
+    return 502 "#502 Bad gateway: it looks like ${name} app is not running";
+  }
+}
+CONF
+}
+
+app_network_id() {
+  echo chang_$(path_hash "${1}")
+}
+
+path_hash() {
+  echo ${1} | shasum - | head -c 8
+}
+
+reload() {
+  docker exec ${CHANG_REV_PROXY_CONTAINER} nginx -s reload 2>/dev/null
+}
+
+remove() {
+  docker rm -f ${CHANG_REV_PROXY_CONTAINER} >/dev/null
+}
+
+exists() {
+  ! test -z $(docker ps -aq --filter name=^/${CHANG_REV_PROXY_CONTAINER}$)
+}
+
+remove_if_exists() {
+  if exists; then
+    remove
+  fi
+}
+
+case "${1:-}" in
+  ""|start)
+    if ! running; then
+      step "Starting chang-rev-proxy"
+      remove_if_exists
+      start
+      add_apps
+      reload
+      step "chang-rev-proxy started"
+      finish_step_line
+    fi
+    app_network_id "${CHANG_PWD:-$(realpath $PWD)}"
+    ;;
+  stop)
+    remove_if_exists
+    ;;
+  add)
+    add_app "${2}"
+    reload
+    ;;
+  *)
+    fail "Usage: chang-rev-proxy [start|stop|add]"
+    ;;
+esac

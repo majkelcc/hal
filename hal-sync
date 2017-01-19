@@ -1,0 +1,195 @@
+#!/bin/bash -eu
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NO_COLOR='\033[0m'
+CLEAR_LINE='\r\033[K'
+
+fail() {
+  printf "${CLEAR_LINE}${RED}❌  ${1:?}${NO_COLOR}\n" 1>&2
+  exit 1
+}
+
+step() {
+  STEP_LINE=true
+  printf "${CLEAR_LINE}${NO_COLOR}▷ ${@:?}${NO_COLOR}" 1>&2
+}
+
+finish_step_line() {
+  printf "$(${STEP_LINE:-false} && echo "\n")" 1>&2
+  STEP_LINE=false
+}
+
+start_server() {
+  require_changignore
+  stop_server
+  create_volume_if_not_exists
+  docker run \
+    -d \
+    -v $(docker_volume):/chang \
+    -e CHANG_UID=${CHANG_UID} \
+    -e CHANG_GID=${CHANG_GID} \
+    -p 127.0.0.1::${CHANG_SYNC_SERVER_PORT} \
+    --name $(docker_container) \
+    ${DOCKER_IMAGE} > /dev/null
+  test_server 50
+}
+
+stop_server() {
+  set +x
+  server_running && docker rm -f $(docker_container) >/dev/null 2>&1
+  set -x
+}
+
+server_running() {
+  ! test -z $(docker ps -q --filter name=^/$(docker_container)$)
+}
+
+initial_sync() {
+  chang_unison $(${VERBOSE} || echo -silent) -batch -ignorelocks -ignorearchives -force "${APP_PATH}"
+  code=$?
+  case $code in
+    0) step "Initial sync finished";;
+    1) fail "Initial sync failed because some files were skipped";;
+    2) fail "Failures occurred during initial sync";;
+    3) fail "Fatal error occured during initial sync";;
+    *) fail "Unison server returned unknown exit code: ${code}";;
+  esac
+}
+
+docker_volume() {
+  if [[ -z ${DOCKER_VOLUME:-} ]]; then
+    project_name=${APP_PATH##*/}
+    [[ -z ${project_name//[a-zA-Z0-9_-]/} ]] || project_name=""
+    path_hash=$(path_hash $project_name)
+    DOCKER_VOLUME="chang-sync${project_name:+_${project_name}}_${path_hash}"
+  fi
+  echo ${DOCKER_VOLUME}
+}
+
+path_hash() {
+  echo ${1:?} | shasum - | head -c 8
+}
+
+docker_container() {
+  docker_volume
+}
+
+container_port() {
+  if [[ -z ${CONTAINER_PORT:-} ]]; then
+    CONTAINER_PORT=`docker port $(docker_container) ${CHANG_SYNC_SERVER_PORT}/tcp 2>/dev/null | sed -E 's/.*127.0.0.1://'`
+    [[ -n ${CONTAINER_PORT} ]] || fail "Unison server has gone away"
+  fi
+  echo ${CONTAINER_PORT}
+}
+
+server_url() {
+  echo socket://127.0.0.1:$(container_port)//chang
+}
+
+test_server() {
+  tests=${1:-1}
+  for _ in $(seq 1 ${tests}); do
+    if unison $(${VERBOSE} || echo -silent) -testserver ${APP_PATH} $(server_url) 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+chang_unison() {
+  eval unison \
+    $(changignore) \
+    -root "${APP_PATH}" \
+    -root $(server_url) \
+    -perms 7 \
+    "${@}"
+}
+
+require_changignore() {
+  [[ -f .changignore || -f .chang/ignore ]] || fail "Chang-sync requires .changignore file to be present"
+}
+
+changignore() {
+  changignorefile=$(test -f .changignore && echo .changignore || echo .chang/ignore)
+  while read ignore || [ -n "${ignore}" ]; do
+    echo -n "-ignore='${ignore}' "
+  done < ${changignorefile}
+}
+
+sync() {
+  trap stop_server INT TERM EXIT
+  chang_unison $(${VERBOSE} || echo -silent) -repeat watch -prefer ${APP_PATH} -killserver
+}
+
+sync_daemon() {
+  sync | read fail_fast & disown
+}
+
+create_volume_if_not_exists() {
+  local name=$(docker_volume)
+  if ! docker volume ls -q | grep -q "^${name}$"; then
+    docker run --rm \
+      --volume "${name}":/volume \
+      ${CHANG_MIN_IMAGE} \
+      chown ${CHANG_UID}:${CHANG_GID} /volume
+  fi
+}
+
+start() {
+  if ! server_running; then
+    step "Starting chang-sync"
+    start_server
+    step "Performing initial sync"
+    initial_sync
+    sync_daemon
+    step "Chang-sync started"
+  fi
+  finish_step_line
+  echo $(docker_volume)
+}
+
+stop() {
+  stop_server
+}
+
+verbose() {
+  VERBOSE=true
+  step "Starting chang-sync in verbose mode"
+  stop_server
+  step "${YELLOW}Docker volume name: ${NO_COLOR}$(docker_volume)"
+  finish_step_line
+  step "${YELLOW}Starting chang-sync container"
+  start_server
+  step "${YELLOW}Performing initial sync"
+  finish_step_line
+  initial_sync
+  step "${YELLOW}Running chang-sync in verbose mode"
+  finish_step_line
+  sync
+}
+
+DOCKER_IMAGE="majkel/chang-sync"
+CHANG_SYNC_SERVER_PORT=5000
+CHANG_UID=${CHANG_UID:-1000}
+CHANG_GID=${CHANG_GID:-1000}
+CHANG_PWD="${CHANG_PWD:-$(realpath $PWD)}"
+APP_PATH="${CHANG_PWD}"
+VERBOSE=false
+
+case "${@:-}" in
+  ""|start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  verbose)
+    verbose
+    ;;
+  *)
+    fail "Usage: chang-sync [start|stop|verbose]"
+    ;;
+esac
