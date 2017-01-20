@@ -96,7 +96,7 @@ export CHANG_PATH=${HOME}/.chang
 export CHANG_MIN_IMAGE=alpine:latest
 export CHANG_DEV_SERVER_PATH=${HOME}/.puma-dev
 
-CHANG_VOLUME=$(hal-sync)
+read CHANG_VOLUME < <(hal-sync)
 CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
 
 export CHANG_VOLUME=${CHANG_VOLUME}
