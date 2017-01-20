@@ -9,15 +9,18 @@ fi
 
 puma-dev -install -install-port 8888
 
-cat <<EOF >> ~/.bashrc
+if ! grep -q "hal throwaway" ~/.bashrc; then
+  cat <<EOF >> ~/.bashrc
 # hal throwaway
 if [[ -d ~/hal ]]; then
   complete -F __chang hal
   export PATH="${HOME}/hal:\${PATH}"
 fi
 EOF
+fi
 
-cat <<EOF >> ~/.zshrc
+if ! grep -q "hal throwaway" ~/.zshrc; then
+  cat <<EOF >> ~/.zshrc
 # hal throwaway
 if [[ -d ~/hal ]]; then
   if [[ -f /usr/local/share/zsh/site-functions/chang ]]; then
@@ -27,6 +30,7 @@ if [[ -d ~/hal ]]; then
   export PATH="${HOME}/hal:\${PATH}"
 fi
 EOF
+fi
 
 wait
 
