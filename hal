@@ -53,6 +53,7 @@ chang_install() {
   rm -f ${CHANG_PATH}/"${name}"
   ln -s "${CHANG_PWD}" ${CHANG_PATH}/"${name}"
   _chang_install_dev_server_if_exists "${name}"
+  _chang_install_dev_server_if_exists "chang"
   hal-rev-proxy add $name
   echo "▷ application installed!"
 }
@@ -61,8 +62,18 @@ _chang_install_dev_server_if_exists() {
   if [[ -n ${CHANG_DEV_SERVER_PATH:-} ]]; then
     find ${CHANG_PATH} -type l | while read chang_project; do
       rm -f ${CHANG_DEV_SERVER_PATH%/}/"${chang_project##*/}"
-      echo ${CHANG_PORT} > ${CHANG_DEV_SERVER_PATH%/}/"${chang_project##*/}"
+      (
+        cd ${CHANG_DEV_SERVER_PATH%/}
+        rm -f "${chang_project##*/}"
+        ln -s chang "${chang_project##*/}"
+      )
     done
+  fi
+}
+
+update_port() {
+  if [[ -n ${CHANG_DEV_SERVER_PATH:-} ]]; then
+    echo ${CHANG_PORT} > ${CHANG_DEV_SERVER_PATH%/}/chang
   fi
 }
 
@@ -91,10 +102,12 @@ export CHANG_PWD=$(pwd -P)
 export BIN=${CHANG_PWD}/.chang/bin
 export CHANG_UID=${CHANG_UID:-1000}
 export CHANG_GID=${CHANG_GID:-1000}
-export CHANG_PORT=${CHANG_PORT:-8888}
+export CHANG_PORT=${CHANG_PORT:-80}
 export CHANG_PATH=${HOME}/.chang
 export CHANG_MIN_IMAGE=alpine:latest
 export CHANG_DEV_SERVER_PATH=${HOME}/.puma-dev
+
+update_port
 
 read CHANG_VOLUME < <(hal-sync)
 CHANG_APP_NETWORK_ID=$(hal-rev-proxy)

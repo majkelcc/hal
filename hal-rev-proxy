@@ -5,6 +5,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NO_COLOR='\033[0m'
 CLEAR_LINE='\r\033[K'
+STEP_LINE=false
 
 fail() {
   printf "${RED}❌  ${1}${NO_COLOR}\n" 1>&2
@@ -12,17 +13,17 @@ fail() {
 }
 
 step() {
-  _STEP_LINE=true
+  STEP_LINE=true
   printf "${CLEAR_LINE}${NO_COLOR}▷ ${@}${NO_COLOR}" 1>&2
 }
 
 finish_step_line() {
-  printf $(${_STEP_LINE} && echo "\n") 1>&2
-  _STEP_LINE=false
+  printf $(${STEP_LINE} && echo "\n") 1>&2
+  STEP_LINE=false
 }
 
 CHANG_NETWORK=${CHANG_NETWORK:-chang}
-CHANG_PORT=${CHANG_PORT:-8888}
+CHANG_PORT=${CHANG_PORT:-80}
 CHANG_PATH=${HOME}/.chang
 CHANG_REV_PROXY_CONTAINER=${CHANG_REV_PROXY_CONTAINER:-chang-rev-proxy}
 CHANG_REV_PROXY_IMAGE=${CHANG_REV_PROXY_IMAGE:-majkel/chang-rev-proxy}
@@ -47,6 +48,7 @@ add_apps() {
   find ${CHANG_PATH} -maxdepth 1 -type l | while read app; do
     add_app "${app##*/}"
   done
+  add_chang_app
 }
 
 add_app() {
@@ -56,7 +58,7 @@ server {
   set \$target $(app_network_id $PWD):3000;
 
   listen 80;
-  server_name .${name}.dev;
+  server_name .${name}.dev .${name}.localhost;
 
   location / {
     proxy_pass_request_headers on;
@@ -66,6 +68,23 @@ server {
 
   location @offline {
     return 502 "#502 Bad gateway: it looks like ${name} app is not running";
+  }
+}
+CONF
+cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - >> /var/www/chang.html"
+<p><a href="http://${name}.dev">${name}.dev</a></p>
+CONF
+}
+
+add_chang_app() {
+cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - > /nginx.d/chang/chang.dev"
+server {
+  listen 80;
+  server_name chang.dev localhost;
+
+  location / {
+    root /var/www;
+    index chang.html;
   }
 }
 CONF

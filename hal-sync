@@ -5,6 +5,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NO_COLOR='\033[0m'
 CLEAR_LINE='\r\033[K'
+STEP_LINE=false
 
 fail() {
   printf "${CLEAR_LINE}${RED}❌  ${1:?}${NO_COLOR}\n" 1>&2
@@ -17,7 +18,7 @@ step() {
 }
 
 finish_step_line() {
-  printf "$(${STEP_LINE:-false} && echo "\n")" 1>&2
+  printf "$(${STEP_LINE} && echo "\n")" 1>&2
   STEP_LINE=false
 }
 

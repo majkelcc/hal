@@ -1,9 +1,13 @@
 #!/bin/bash -eu
 
+docker pull majkel/chang-rev-proxy &
+rm -rf ~/.puma-dev
 brew install puma/puma/puma-dev
 if test -f ~/Library/Application\ Support/io.puma.dev/cert.pem; then
   security add-trusted-cert -k login.keychain-db ~/Library/Application\ Support/io.puma.dev/cert.pem
 fi
+
+puma-dev -install -install-port 8888
 
 cat <<EOF >> ~/.bashrc
 # hal throwaway
@@ -23,5 +27,7 @@ if [[ -d ~/hal ]]; then
   export PATH="${HOME}/hal:\${PATH}"
 fi
 EOF
+
+wait
 
 echo "DONE"
