@@ -43,7 +43,7 @@ stop_server() {
 }
 
 server_exists() {
-  ! test -z $(docker ps -aq --filter name=^/$(docker_container)$)
+  ! test -z $(docker ps -aq --filter name=^/$(docker_container)$ 2>/dev/null)
 }
 
 server_running() {
