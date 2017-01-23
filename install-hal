@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 
-docker pull majkel/chang-rev-proxy &
+docker pull majkel/chang-rev-proxy
 rm -rf ~/.puma-dev
 brew install puma/puma/puma-dev
 if test -f ~/Library/Application\ Support/io.puma.dev/cert.pem; then
@@ -31,7 +31,5 @@ if [[ -d ~/hal ]]; then
 fi
 EOF
 fi
-
-wait
 
 echo "DONE"
