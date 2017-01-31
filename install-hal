@@ -1,9 +1,12 @@
 #!/bin/bash -eu
 
 docker pull majkel/chang-rev-proxy
+set +e
+docker rm -f chang-rev-proxy 2>/dev/null
+set -e
 rm -rf ~/.puma-dev
-brew install puma/puma/puma-dev
-if test -f ~/Library/Application\ Support/io.puma.dev/cert.pem; then
+if ! which puma-dev; then
+  brew install puma/puma/puma-dev
   security add-trusted-cert -k login.keychain-db ~/Library/Application\ Support/io.puma.dev/cert.pem
 fi
 
