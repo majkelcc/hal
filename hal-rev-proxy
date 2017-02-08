@@ -82,9 +82,11 @@ server {
   }
 }
 CONF
-cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "[[ ! -f /var/www/${name}.dev ]] && cat - >> /var/www/chang.html && touch /var/www/${name}.dev"
-<p><a href="http://${name}.dev">${name}.dev</a></p>
+  if ! docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "test -f /var/www/${name}.dev"; then
+    cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - >> /var/www/chang.html && touch /var/www/${name}.dev"
+  <p><a href="http://${name}.dev">${name}.dev</a></p>
 CONF
+  fi
 }
 
 add_chang_app() {
