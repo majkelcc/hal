@@ -7,7 +7,7 @@ export CHANG_NO_COLOR='\033[0m'
 export CHANG_CLEAR_LINE='\r\033[K'
 export CHANG_COLOR_DIM='\e[2m'
 
-export CHANG_SET=${CHANG_SET:"-eu"}
+export CHANG_SET=${CHANG_SET:--eu}
 set ${CHANG_SET}
 
 STEP_LINE=false
