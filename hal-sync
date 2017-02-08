@@ -5,16 +5,18 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NO_COLOR='\033[0m'
 CLEAR_LINE='\r\033[K'
+DIM='\e[2m'
 STEP_LINE=false
 
 fail() {
-  printf "${CLEAR_LINE}${RED}❌  ${1:?}${NO_COLOR}\n" 1>&2
+  printf "${CLEAR_LINE}${RED}⚡️  ${@:?}${NO_COLOR}\n" 1>&2
   exit 1
 }
 
 step() {
   STEP_LINE=true
-  printf "${CLEAR_LINE}${NO_COLOR}▷ ${@:?}${NO_COLOR}" 1>&2
+  style=$(${VERBOSE} && printf ${YELLOW} || printf ${DIM})
+  printf "${CLEAR_LINE}${NO_COLOR}${style}▷ ${@:?}${NO_COLOR}" 1>&2
 }
 
 finish_step_line() {
@@ -52,7 +54,7 @@ server_running() {
 }
 
 initial_sync() {
-  chang_unison $(${VERBOSE} || echo -silent) -batch -ignorelocks -ignorearchives -force "${APP_PATH}"
+  chang_unison $(${VERBOSE} || echo -silent) -batch -ignorelocks -ignorearchives -force "${APP_PATH}" -perms -1
   code=$?
   case $code in
     0) step "Initial sync finished";;
@@ -126,7 +128,7 @@ changignore() {
 
 sync() {
   trap stop_server INT TERM EXIT
-  chang_unison $(${VERBOSE} || echo -silent) -repeat watch -prefer ${APP_PATH} -killserver
+  chang_unison $(${VERBOSE} || echo -silent) -repeat watch -prefer ${APP_PATH} -killserver -perms -1
 }
 
 sync_daemon() {
@@ -153,7 +155,6 @@ start() {
     step "Chang-sync started"
   fi
   finish_step_line
-  echo $(docker_volume)
 }
 
 stop() {
@@ -164,14 +165,14 @@ verbose() {
   VERBOSE=true
   step "Starting chang-sync in verbose mode"
   stop_server
-  step "${YELLOW}Docker volume name: ${NO_COLOR}$(docker_volume)"
+  step "Docker volume name: ${NO_COLOR}$(docker_volume)"
   finish_step_line
-  step "${YELLOW}Starting chang-sync container"
+  step "Starting chang-sync container"
   start_server
-  step "${YELLOW}Performing initial sync"
+  step "Performing initial sync"
   finish_step_line
   initial_sync
-  step "${YELLOW}Running chang-sync in verbose mode"
+  step "Running chang-sync in verbose mode"
   finish_step_line
   sync
 }
@@ -187,6 +188,7 @@ VERBOSE=false
 case "${@:-}" in
   ""|start)
     start
+    echo $(docker_volume)
     ;;
   stop)
     stop
@@ -194,7 +196,11 @@ case "${@:-}" in
   verbose)
     verbose
     ;;
+  restart)
+    stop
+    start
+    ;;
   *)
-    fail "Usage: chang-sync [start|stop|verbose]"
+    fail "Usage: chang-sync [start|stop|restart|verbose]"
     ;;
 esac

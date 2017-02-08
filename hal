@@ -1,31 +1,43 @@
-#!/bin/bash -eu
+#!/bin/bash
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NO_COLOR='\033[0m'
-CLEAR_LINE='\r\033[K'
+export CHANG_COLOR_RED='\033[0;31m'
+export CHANG_COLOR_GREEN='\033[0;32m'
+export CHANG_COLOR_YELLOW='\033[0;33m'
+export CHANG_NO_COLOR='\033[0m'
+export CHANG_CLEAR_LINE='\r\033[K'
+export CHANG_COLOR_DIM='\e[2m'
+
+export CHANG_SET=-eu
+set ${CHANG_SET}
+
+STEP_LINE=false
 
 fail() {
-  printf "${RED}❌  ${1}${NO_COLOR}\n" 1>&2
+  printf "${CHANG_COLOR_RED}⚡️  ${@}${CHANG_NO_COLOR}\n" >&2
   exit 1
 }
 
 step() {
-  _STEP_LINE=true
-  printf "${CLEAR_LINE}${NO_COLOR}${@}${NO_COLOR}" 1>&2
+  STEP_LINE=true
+  printf "${CHANG_CLEAR_LINE}${CHANG_NO_COLOR}${@}${CHANG_NO_COLOR}" >&2
+}
+
+chang_info() {
+  printf "${CHANG_COLOR_YELLOW}▷ ${@}${CHANG_NO_COLOR}\n" >&2
+}
+
+chang_dir() {
+  test -d .chang/bin
 }
 
 finish_step_line() {
-  printf $(${_STEP_LINE} && echo "\n") 1>&2
-  _STEP_LINE=false
+  printf $(${STEP_LINE} && echo "\n") 1>&2
+  STEP_LINE=false
 }
-
-[ -d .chang/bin ] || fail "Not a chang directory"
 
 chang_create_volume_if_not_exists() {
   local name=${1}
-  if ! docker volume ls -q | grep -q "^${name}$"; then
+  if ! docker volume ls -q | grep -qF "\b${name}\b"; then
     docker run --rm \
       --volume "${name}":/volume \
       ${CHANG_MIN_IMAGE} \
@@ -45,8 +57,6 @@ chang_install() {
   if [[ $# -eq 1 ]]; then
     local name=${1}
   else
-    # echo "what name sir? (${default_name})"
-    # read name
     name=${name:-${default_name}}
   fi
   mkdir -p ${CHANG_PATH}
@@ -90,13 +100,123 @@ path_hash() {
   echo ${1} | shasum - | head -c 8
 }
 
+chang_current_branch() {
+  git branch | grep \* | cut -d ' ' -f2-
+}
+
+chang_last_change_commit() {
+  IFS=', ' read -ra args <<< "${@}"
+  git log -n1 --oneline "${args[@]}" 2>/dev/null | awk '{print $1;}'
+}
+
+chang_last_change_branch() {
+  IFS=', ' read -ra args <<< "${@}"
+  git log -n1 --oneline "${args[@]}" | awk '{print $2;}'
+}
+
+chang_marker_check_commit() {
+  IFS=, read -ra args <<< "${@}"
+  local commit=$(chang_last_change_commit "${args[@]}")
+  if test -n ${commit} && test -f ${CHANG_TMP_PATH}/commit_marks/$(chang_mark_filename "${args[@]}")_${commit}; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+chang_marker_mark_commit() {
+  IFS=, read -ra args <<< "${@}"
+  mkdir -p ${CHANG_TMP_PATH}/commit_marks
+  local commit=$(chang_last_change_commit "${args[@]}")
+  touch ${CHANG_TMP_PATH}/commit_marks/$(chang_mark_filename "${args[@]}")_${commit}
+}
+
+chang_marker_check_branch() {
+  IFS=, read -ra args <<< "${@}"
+  local branch=$(chang_last_change_branch "${args[@]}")
+  if test -n ${branch} && test -f ${CHANG_TMP_PATH}/branch_marks/$(chang_mark_filename "${args[@]}")_${branch}; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+chang_marker_mark_branch() {
+  IFS=, read -ra args <<< "${@}"
+  mkdir -p ${CHANG_TMP_PATH}/branch_marks
+  local branch=$(chang_last_change_branch "${args[@]}")
+  touch ${CHANG_TMP_PATH}/branch_marks/$(chang_mark_filename "${args[@]}")_${branch}
+}
+
+chang_state_compare_commit() {
+  IFS=, read -ra args <<< "${@}"
+  local commit=$(chang_last_change_commit "${args[@]}")
+  if test -n ${commit} && [[ $(cat "${CHANG_TMP_PATH}/state/commit_$(chang_mark_filename "${args[@]}")" 2>/dev/null) == ${commit} ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+chang_state_compare_branch() {
+  IFS=, read -ra args <<< "${@}"
+  local branch=$(chang_last_change_branch "${args[@]}")
+  if test -n ${branch} && [[ $(cat "${CHANG_TMP_PATH}/state/branch_$(chang_mark_filename "${args[@]}")" 2>/dev/null) == ${branch} ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+chang_state_update_commit() {
+  IFS=, read -ra args <<< "${@}"
+  mkdir -p ${CHANG_TMP_PATH}/state
+  chang_last_change_commit "${args[@]}" > "${CHANG_TMP_PATH}/state/commit_$(chang_mark_filename "${args[@]}")"
+}
+
+chang_state_update_branch() {
+  IFS=, read -ra args <<< "${@}"
+  mkdir -p ${CHANG_TMP_PATH}/state
+  chang_last_change_branch "${args[@]}" > "${CHANG_TMP_PATH}/state/branch_$(chang_mark_filename "${args[@]}")"
+}
+
+chang_tmp_clean() {
+  find ${CHANG_TMP_PATH} -mtime +${1:-7} -type f -delete
+}
+
+chang_running_container_name() {
+  docker ps | grep -oE "[a-zA-Z0-9_-]+${CHANG_APP_HASH}_${1}_1" || true
+}
+
+chang_mark_filename() {
+  sed 's/[^a-zA-Z0-9._-]//g' <<< "${@}" | head -c 200
+}
+
+export -f chang_running_container_name
+export -f chang_last_change_commit
+export -f chang_last_change_branch
+
+export -f chang_marker_check_branch
+export -f chang_marker_check_commit
+export -f chang_marker_mark_branch
+export -f chang_marker_mark_commit
+
+export -f chang_state_compare_branch
+export -f chang_state_compare_commit
+export -f chang_state_update_branch
+export -f chang_state_update_commit
+
+export -f chang_tmp_clean
+export -f chang_mark_filename
+export -f fail
+export -f step
+export -f chang_info
+
 export -f chang_create_volume_if_not_exists
 export -f chang_create_network_if_not_exists
 export -f chang_install
 export -f chang
 export -f _chang_install_dev_server_if_exists
-
-CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
 
 export CHANG_PWD=$(pwd -P)
 export BIN=${CHANG_PWD}/.chang/bin
@@ -106,6 +226,7 @@ export CHANG_PORT=${CHANG_PORT:-80}
 export CHANG_PATH=${HOME}/.chang
 export CHANG_MIN_IMAGE=alpine:latest
 export CHANG_DEV_SERVER_PATH=${HOME}/.puma-dev
+export CHANG_TMP_PATH=.chang/tmp
 
 update_port
 
@@ -113,6 +234,7 @@ read CHANG_VOLUME < <(hal-sync)
 CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
 
 export CHANG_VOLUME=${CHANG_VOLUME}
+export CHANG_APP_HASH=${CHANG_VOLUME##*_}
 export CHANG_APP_NETWORK_ID=${CHANG_APP_NETWORK_ID}
 export COMPOSE_PROJECT_NAME=${CHANG_VOLUME##chang-sync_}
 
@@ -130,15 +252,19 @@ run() {
   $1 "${@:2}"
 }
 
+if [[ -f .chang/environment ]]; then
+  source .chang/environment
+fi
+
 if [[ ${cmd_path}/${cmd} != ".chang/bin/" ]]; then
   if [[ -z $cmd ]]; then
     [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
-    run "${cmd_path}/${cmd_path##*/}"
+    run "${cmd_path}/${cmd_path##*/}" || fail "chang ${@} failed"
   elif [[ -f "${cmd_path}/${cmd}" ]]; then
-    run "${cmd_path}/${cmd}" "${@:2}"
+    run "${cmd_path}/${cmd}" "${@:2}" || fail "chang ${@} failed"
   else
     [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
-    run "${cmd_path}/${cmd_path##*/}" "${@:1}"
+    run "${cmd_path}/${cmd_path##*/}" "${@:1}" || fail "chang ${@} failed"
   fi
 else
   if [ -x $BIN/status ]; then

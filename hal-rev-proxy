@@ -5,6 +5,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NO_COLOR='\033[0m'
 CLEAR_LINE='\r\033[K'
+DIM='\e[2m'
 STEP_LINE=false
 
 fail() {
@@ -14,7 +15,15 @@ fail() {
 
 step() {
   STEP_LINE=true
-  printf "${CLEAR_LINE}${NO_COLOR}▷ ${@}${NO_COLOR}" 1>&2
+  printf "${CLEAR_LINE}${NO_COLOR}${@:?}${NO_COLOR}" 1>&2
+}
+
+quiet_step() {
+  step "${DIM}▷ ${@:?}"
+}
+
+verbose_step() {
+  step "${YELLOW}▷ ${@:?}"
 }
 
 finish_step_line() {
@@ -71,7 +80,7 @@ server {
   }
 }
 CONF
-cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - >> /var/www/chang.html"
+cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "[[ ! -f /var/www/${name}.dev ]] && cat - >> /var/www/chang.html && touch /var/www/${name}.dev"
 <p><a href="http://${name}.dev">${name}.dev</a></p>
 CONF
 }
@@ -119,12 +128,12 @@ remove_if_exists() {
 case "${1:-}" in
   ""|start)
     if ! running; then
-      step "Starting chang-rev-proxy"
+      quiet_step "Starting chang-rev-proxy"
       remove_if_exists
       start
       add_apps
       reload
-      step "chang-rev-proxy started"
+      quiet_step "Chang-rev-proxy started"
       finish_step_line
     fi
     app_network_id "${CHANG_PWD:-$(pwd -P)}"
