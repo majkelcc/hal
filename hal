@@ -259,12 +259,12 @@ fi
 if [[ ${cmd_path}/${cmd} != ".chang/bin/" ]]; then
   if [[ -z $cmd ]]; then
     [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
-    run "${cmd_path}/${cmd_path##*/}" || fail "chang ${@} failed"
+    run "${cmd_path}/${cmd_path##*/}" || fail "chang ${@:-} failed"
   elif [[ -f "${cmd_path}/${cmd}" ]]; then
-    run "${cmd_path}/${cmd}" "${@:2}" || fail "chang ${@} failed"
+    run "${cmd_path}/${cmd}" "${@:2}" || fail "chang ${@:-} failed"
   else
     [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
-    run "${cmd_path}/${cmd_path##*/}" "${@:1}" || fail "chang ${@} failed"
+    run "${cmd_path}/${cmd_path##*/}" "${@:1}" || fail "chang ${@:-} failed"
   fi
 else
   if [ -x $BIN/status ]; then
