@@ -250,6 +250,15 @@ cmd=${1:-}
 run() {
   [[ -x $1 ]] || fail "$1 is not executable"
   $1 "${@:2}"
+  exit_code=$?
+  case ${exit_code} in
+    0|130)
+      exit ${exit_code}
+      ;;
+    *)
+      fail "${@:-} exited with code ${exit_code}"
+      ;;
+  esac
 }
 
 if [[ -f .chang/environment ]]; then
@@ -259,12 +268,12 @@ fi
 if [[ ${cmd_path}/${cmd} != ".chang/bin/" ]]; then
   if [[ -z $cmd ]]; then
     [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
-    run "${cmd_path}/${cmd_path##*/}" || fail "chang ${@:-} failed"
+    run "${cmd_path}/${cmd_path##*/}" || fail "chang ${@:-} exit with code ${?}"
   elif [[ -f "${cmd_path}/${cmd}" ]]; then
-    run "${cmd_path}/${cmd}" "${@:2}" || fail "chang ${@:-} failed"
+    run "${cmd_path}/${cmd}" "${@:2}" || fail "chang ${@:-} exit with code ${?}"
   else
     [[ -f "${cmd_path}/${cmd_path##*/}" ]] || fail "command not found"
-    run "${cmd_path}/${cmd_path##*/}" "${@:1}" || fail "chang ${@:-} failed"
+    run "${cmd_path}/${cmd_path##*/}" "${@:1}" || fail "chang ${@:-} exit with code ${?}"
   fi
 else
   if [ -x $BIN/status ]; then
