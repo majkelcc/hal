@@ -38,6 +38,7 @@ CHANG_PORT=${CHANG_PORT:-80}
 CHANG_PATH=${HOME}/.chang
 CHANG_REV_PROXY_CONTAINER=${CHANG_REV_PROXY_CONTAINER:-chang-rev-proxy}
 CHANG_REV_PROXY_IMAGE=${CHANG_REV_PROXY_IMAGE:-majkel/chang-rev-proxy}
+CHANG_REV_PROXY_ENABLED=${CHANG_REV_PROXY_ENABLED:-true}
 
 running() {
   ! test -z $(docker ps -q --filter name=^/${CHANG_REV_PROXY_CONTAINER}$)
@@ -131,7 +132,7 @@ remove_if_exists() {
 
 case "${1:-}" in
   ""|start)
-    if ! running; then
+    if [[ ${CHANG_REV_PROXY_ENABLED} == true ]] && ! running; then
       quiet_step "Starting chang-rev-proxy"
       remove_if_exists
       start
@@ -146,8 +147,10 @@ case "${1:-}" in
     remove_if_exists
     ;;
   add)
-    add_app "${2}"
-    reload
+    if [[ ${CHANG_REV_PROXY_ENABLED} == true ]]
+      add_app "${2}"
+      reload
+    fi
     ;;
   *)
     fail "Usage: chang-rev-proxy [start|stop|add]"
