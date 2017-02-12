@@ -71,6 +71,7 @@ chang_install() {
 
 _chang_install_dev_server_if_exists() {
   if [[ -n ${CHANG_DEV_SERVER_PATH:-} ]]; then
+    update_port
     find ${CHANG_PATH} -type l | while read chang_project; do
       rm -f ${CHANG_DEV_SERVER_PATH%/}/"${chang_project##*/}"
       (
@@ -229,8 +230,6 @@ export CHANG_MIN_IMAGE=alpine:latest
 export CHANG_DEV_SERVER_PATH=${CHANG_DEV_SERVER_PATH:-${HOME}/.puma-dev}
 export CHANG_TMP_PATH=.chang/tmp
 export CHANG_REV_PROXY_ENABLED=${CHANG_REV_PROXY_ENABLED:-true}
-
-update_port
 
 read CHANG_VOLUME < <(hal-sync)
 CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
