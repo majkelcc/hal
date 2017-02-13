@@ -71,7 +71,7 @@ chang_install() {
 
 _chang_install_dev_server_if_exists() {
   if [[ -n ${CHANG_DEV_SERVER_PATH:-} ]]; then
-    update_port
+    chang_update_port
     find ${CHANG_PATH} -type l | while read chang_project; do
       rm -f ${CHANG_DEV_SERVER_PATH%/}/"${chang_project##*/}"
       (
@@ -83,7 +83,7 @@ _chang_install_dev_server_if_exists() {
   fi
 }
 
-update_port() {
+chang_update_port() {
   if [[ -n ${CHANG_DEV_SERVER_PATH:-} ]]; then
     echo ${CHANG_PORT} > ${CHANG_DEV_SERVER_PATH%/}/chang
   fi
@@ -219,6 +219,7 @@ export -f chang_create_network_if_not_exists
 export -f chang_install
 export -f chang
 export -f _chang_install_dev_server_if_exists
+export -f chang_update_port
 
 export CHANG_PWD=$(pwd -P)
 export BIN=${CHANG_PWD}/.chang/bin

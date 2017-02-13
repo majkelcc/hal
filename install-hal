@@ -13,7 +13,7 @@ fi
 
 puma-dev -install -install-port 8888
 
-if ! grep -q "hal throwaway" ~/.bashrc; then
+if test -f ~/.bashrc && ! grep -q "hal throwaway" ~/.bashrc; then
   cat <<EOF >> ~/.bashrc
 # hal throwaway
 if [[ -d ~/hal ]]; then
@@ -21,9 +21,11 @@ if [[ -d ~/hal ]]; then
   export PATH="${HOME}/hal:\${PATH}"
 fi
 EOF
+else
+  echo "~/.bashrc not found, skipping"
 fi
 
-if ! grep -q "hal throwaway" ~/.zshrc; then
+if test -f ~/.zshrc && ! grep -q "hal throwaway" ~/.zshrc; then
   cat <<EOF >> ~/.zshrc
 # hal throwaway
 if [[ -d ~/hal ]]; then
@@ -34,6 +36,9 @@ if [[ -d ~/hal ]]; then
   export PATH="${HOME}/hal:\${PATH}"
 fi
 EOF
+else
+  echo "~/.zshrc not found, skipping"
 fi
+
 
 echo "DONE"
