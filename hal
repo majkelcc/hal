@@ -278,7 +278,7 @@ if [[ -n ${CHANG_REQUIRE_VERSION:-} ]]; then
   if [[ ${CHANG_VERSION} -lt ${CHANG_REQUIRE_VERSION} ]]; then
     (
       cd ${0%/*}
-      git stash; git pull --rebase; git stash pop
+      git pull --rebase
     )
     export CHANG_UPDATED=true
     ${0##*/} "${@:-}"
