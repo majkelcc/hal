@@ -231,6 +231,7 @@ export CHANG_MIN_IMAGE=alpine:latest
 export CHANG_DEV_SERVER_PATH=${CHANG_DEV_SERVER_PATH:-${HOME}/.puma-dev}
 export CHANG_TMP_PATH=.chang/tmp
 export CHANG_REV_PROXY_ENABLED=${CHANG_REV_PROXY_ENABLED:-true}
+export CHANG_VERSION=1
 
 read CHANG_VOLUME < <(hal-sync)
 CHANG_APP_NETWORK_ID=$(hal-rev-proxy)
@@ -265,6 +266,24 @@ run() {
 
 if [[ -f .chang/environment ]]; then
   source .chang/environment
+fi
+
+CHANG_VERSION=1
+
+if [[ -n ${CHANG_REQUIRE_VERSION:-} ]]; then
+  if [[ -n ${CHANG_UPDATED:-} ]]; then
+    fail "VERSION MISMATCH: latest version of chang is ${CHANG_VERSION}, but version requested is ${CHANG_REQUIRE_VERSION}"
+  fi
+  chang_info "Updating chang"
+  if [[ ${CHANG_VERSION} -lt ${CHANG_REQUIRE_VERSION} ]]; then
+    (
+      cd ${0%/*}
+      git stash; git pull --rebase; git stash pop
+    )
+    export CHANG_UPDATED=true
+    ${0##*/} "${@:-}"
+    exit $?
+  fi
 fi
 
 if [[ ${cmd_path}/${cmd} != ".chang/bin/" ]]; then
