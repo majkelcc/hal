@@ -10,7 +10,7 @@ if ! which puma-dev; then
   brew install puma/puma/puma-dev
   security add-trusted-cert -k login.keychain-db ~/Library/Application\ Support/io.puma.dev/cert.pem
   sudo puma-dev -setup
+  puma-dev -install
 fi
 
-puma-dev -install
 
