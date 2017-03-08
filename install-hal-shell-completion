@@ -4,19 +4,6 @@ brew tap majkelcc/homebrew-chang-tap
 brew install chang-bash-completion
 brew install chang-zsh-completion
 
-docker pull majkel/chang-rev-proxy
-set +e
-docker rm -f chang-rev-proxy 2>/dev/null
-set -e
-rm -rf ~/.puma-dev
-if ! which puma-dev; then
-  brew install puma/puma/puma-dev
-  security add-trusted-cert -k login.keychain-db ~/Library/Application\ Support/io.puma.dev/cert.pem
-  sudo puma-dev -setup
-fi
-
-puma-dev -install -install-port 8888
-
 if test -f ~/.bashrc && ! grep -q "hal throwaway" ~/.bashrc; then
   cat <<EOF >> ~/.bashrc
 # hal throwaway
