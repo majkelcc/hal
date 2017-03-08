@@ -12,5 +12,5 @@ if ! which puma-dev; then
   sudo puma-dev -setup
 fi
 
-puma-dev -install -install-port 8888
+puma-dev -install
 
