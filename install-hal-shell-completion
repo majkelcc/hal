@@ -4,20 +4,25 @@ brew tap majkelcc/homebrew-chang-tap
 brew install chang-bash-completion
 brew install chang-zsh-completion
 
-if test -f ~/.bashrc && ! grep -q "hal throwaway" ~/.bashrc; then
-  cat <<EOF >> ~/.bashrc
+if test -f ~/.bashrc; then
+ if ! grep -q "hal throwaway" ~/.bashrc; then
+    cat <<EOF >> ~/.bashrc
 # hal throwaway
 if [[ -d ~/hal ]]; then
   complete -F __chang hal
   export PATH="${HOME}/hal:\${PATH}"
 fi
 EOF
+  else
+    echo "~/.bashrc completion already installed, skipping"
+  fi
 else
   echo "~/.bashrc not found, skipping"
 fi
 
-if test -f ~/.zshrc && ! grep -q "hal throwaway" ~/.zshrc; then
-  cat <<EOF >> ~/.zshrc
+if test -f ~/.zshrc; then
+  if ! grep -q "hal throwaway" ~/.zshrc; then
+    cat <<EOF >> ~/.zshrc
 # hal throwaway
 if [[ -d ~/hal ]]; then
   if [[ -f /usr/local/share/zsh/site-functions/chang ]]; then
@@ -27,6 +32,9 @@ if [[ -d ~/hal ]]; then
   export PATH="${HOME}/hal:\${PATH}"
 fi
 EOF
+  else
+    echo "~/.zshrc completion already installed, skipping"
+  fi
 else
   echo "~/.zshrc not found, skipping"
 fi
