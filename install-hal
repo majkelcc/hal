@@ -1,5 +1,9 @@
 #!/bin/bash -eu
 
+brew tap majkelcc/homebrew-chang-tap
+brew install chang-bash-completion
+brew install chang-zsh-completion
+
 docker pull majkel/chang-rev-proxy
 set +e
 docker rm -f chang-rev-proxy 2>/dev/null
