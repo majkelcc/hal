@@ -267,8 +267,6 @@ if [[ -f .chang/environment ]]; then
   source .chang/environment
 fi
 
-CHANG_VERSION=1
-
 if [[ -n ${CHANG_REQUIRE_VERSION:-} ]]; then
   if [[ -n ${CHANG_UPDATED:-} ]]; then
     fail "VERSION MISMATCH: latest version of chang is ${CHANG_VERSION}, but version requested is ${CHANG_REQUIRE_VERSION}"
