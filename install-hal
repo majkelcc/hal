@@ -44,5 +44,4 @@ else
   echo "~/.zshrc not found, skipping"
 fi
 
-
 echo "DONE"

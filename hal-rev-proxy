@@ -51,7 +51,12 @@ start() {
 
   docker run -d \
     --name ${CHANG_REV_PROXY_CONTAINER} \
-    -p 127.0.0.1:${CHANG_PORT}:80 \
+    -p 127.0.0.1:${CHANG_PORT}:8080 \
+    -p 127.0.0.1:${CHANG_EXTRA_PORTS_PREFIX}1:8081 \
+    -p 127.0.0.1:${CHANG_EXTRA_PORTS_PREFIX}2:8082 \
+    -p 127.0.0.1:${CHANG_EXTRA_PORTS_PREFIX}3:8083 \
+    -p 127.0.0.1:${CHANG_EXTRA_PORTS_PREFIX}4:8084 \
+    -p 127.0.0.1:${CHANG_EXTRA_PORTS_PREFIX}5:8085 \
     --network=chang \
     ${CHANG_REV_PROXY_IMAGE} > /dev/null
 }
@@ -65,11 +70,27 @@ add_apps() {
 
 add_app() {
   local name=${1}
-  cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - > /nginx.d/chang/${name}.dev"
-server {
-  set \$target $(app_network_id $PWD):3000;
+  local port_index=${2}
+  local app_port=${3}
+  local subdomain=${4:-}
+  port=808${port_index}
+  if [[ $port_index == 0 ]]; then
+    app_network_sufix=""
+  else
+    app_network_sufix="_${port_index}"
+  fi
+  add_app_conf $port "${subdomain:+${subdomain}.}${name}" "$(app_network_id $PWD)${app_network_sufix}:${app_port}"
+}
 
-  listen 80;
+add_app_conf() {
+  local port=${1}
+  local name=${2}
+  local target=${3}
+  cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - > /nginx.d/chang/${name}_${port}.dev"
+server {
+  set \$target ${target};
+
+  listen ${port};
   server_name .${name}.dev .${name}.localhost;
 
   location / {
@@ -85,15 +106,16 @@ server {
 CONF
   if ! docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "test -f /var/www/${name}.dev"; then
     cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - >> /var/www/chang.html && touch /var/www/${name}.dev"
-  <p><a href="http://${name}.dev">${name}.dev</a></p>
+  <p><a href="//${name}.dev">${name}.dev</a></p>
 CONF
   fi
+  add_chang_app
 }
 
 add_chang_app() {
 cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - > /nginx.d/chang/chang.dev"
 server {
-  listen 80;
+  listen 8080;
   server_name chang.dev localhost;
 
   location / {
@@ -136,8 +158,8 @@ case "${1:-}" in
       quiet_step "Starting chang-rev-proxy"
       remove_if_exists
       start
-      add_apps
-      reload
+      # add_apps
+      # reload
       quiet_step "Chang-rev-proxy started"
       finish_step_line
     fi
@@ -148,7 +170,7 @@ case "${1:-}" in
     ;;
   add)
     if [[ ${CHANG_REV_PROXY_ENABLED} == true ]]; then
-      add_app "${2}"
+      add_app "${@:2}"
       reload
     fi
     ;;
