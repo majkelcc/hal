@@ -89,9 +89,11 @@ add_app_conf() {
   cat <<CONF | docker exec -i ${CHANG_REV_PROXY_CONTAINER} sh -c "cat - > /nginx.d/chang/${name}_${port}.dev"
 server {
   set \$target ${target};
+  keepalive_timeout 0;
 
   listen ${port};
   server_name .${name}.dev .${name}.localhost;
+  client_max_body_size 10M;
 
   location / {
     proxy_pass_request_headers on;
